@@ -157,6 +157,12 @@ jobs:
             cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
             cd test-framework
             ./gradlew :validator:run --args="-c default-lambda-validation.yml --endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
+      - name: validate java metric sample
+        if: ${{ matrix.name == java-awssdk-agent}}
+        run: |
+          cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedTrace.mustache
+          cd test-framework
+          ./gradlew :validator:run --args="-c prometheus-static-metric-validation.yml -cortex-instance-endpoint ${{ secrets.AMP_ENDPOINT }} --region $AWS_REGION"
       - name: Destroy terraform
         if: always()
         run: terraform destroy -auto-approve
