@@ -17,11 +17,11 @@ jobs:
         # below.
         name:
           - java-awssdk-agent
-          - java-awssdk-wrapper
-          - java-okhttp-wrapper
-          - nodejs-awssdk
-          - python38
-          - dotnet-awssdk-wrapper
+          # - java-awssdk-wrapper
+          # - java-okhttp-wrapper
+          # - nodejs-awssdk
+          # - python38
+          # - dotnet-awssdk-wrapper
         include:
           - name: java-awssdk-agent
             language: java
