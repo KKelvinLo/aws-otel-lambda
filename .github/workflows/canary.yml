@@ -17,7 +17,7 @@ jobs:
         # below.
         name:
           - java-awssdk-agent
-          - java-awssdk-wrapper
+          # - java-awssdk-wrapper
           # - java-okhttp-wrapper
           # - nodejs-awssdk
           # - python38
@@ -138,21 +138,21 @@ jobs:
         with:
           repository: aws-observability/aws-otel-test-framework
           path: test-framework
-      # - name: validate trace sample
-      #   uses: nick-invision/retry@v2
-      #   with:
-      #     timeout_seconds: 300
-      #     max_attempts: 3
-      #     command: |
-      #       cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
-      #       cd test-framework
-      #       ./gradlew :validator:run --args="-c default-lambda-validation.yml --endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
+      - name: validate trace sample
+        uses: nick-invision/retry@v2
+        with:
+          timeout_seconds: 300
+          max_attempts: 3
+          command: |
+            cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
+            cd test-framework
+            ./gradlew :validator:run --args="-c default-lambda-validation.yml --endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
       - name: validate java metric sample
         if: ${{ matrix.name == 'java-awssdk-agent' && contains(matrix.amp_regions, matrix.aws_region)}}
         run: |
-          cp ${{ matrix.expected_metric_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
+          cp ${{ matrix.expected_metric_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedMetric.mustache
           cd test-framework
-          ./gradlew :validator:run --args="-c prometheus-static-metric-validation.yml -cortex-instance-endpoint ${{ steps.extract-amp-endpoint.outputs.stdout }} --region $AWS_REGION"
+          ./gradlew :validator:run --args="-c prometheus-static-metric-validation.yml --cortex-instance-endpoint ${{ steps.extract-amp-endpoint.outputs.stdout }} --region $AWS_REGION"
       - name: Destroy terraform
         if: always()
         run: terraform destroy -auto-approve
