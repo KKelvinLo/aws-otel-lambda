@@ -149,6 +149,7 @@ jobs:
       - name: validate java metric sample
         if: ${{ matrix.name == 'java-awssdk-agent' && contains(matrix.amp_regions, matrix.aws_region)}}
         run: |
+          ls
           cp ${{ matrix.expected_metric_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedMetric.mustache
           cd test-framework
           ./gradlew :validator:run --args="-c prometheus-static-metric-validation.yml --cortex-instance-endpoint ${{ steps.extract-amp-endpoint.outputs.stdout }} --region $AWS_REGION"
