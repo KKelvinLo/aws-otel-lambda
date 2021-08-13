@@ -29,7 +29,7 @@ jobs:
             build_command: ./build.sh
             replace_command: ./replace.sh
             terraform_directory: sample-apps/java-agent-aws-sdk-terraform
-            amp_regions: [ "us-west-1", "us-east-1", "us-east-2", "eu-central-1", "eu-west-1"]
+            amp_regions: [ "us-west-2", "us-east-1", "us-east-2", "eu-central-1", "eu-west-1"]
             amp_terraform_directory: integration-tests/amp-terraform
             expected_trace_template: adot/utils/expected-templates/java-awssdk-agent.json
             expected_metric_template: adot/utils/expected-templates/java-awssdk-agent-metric.json
@@ -150,8 +150,7 @@ jobs:
       - name: validate java metric sample
         if: ${{ matrix.name == 'java-awssdk-agent' && contains(matrix.amp_regions, matrix.aws_region)}}
         run: |
-          ls
-          cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedMetric.mustache
+          cp ${{ matrix.expected_template }} ampExpectedMetric.mustache
           cd test-framework
           ./gradlew :validator:run --args="-c prometheus-static-metric-validation.yml -cortex-instance-endpoint ${{ steps.extract-amp-endpoint.outputs.stdout }} --region $AWS_REGION"
       - name: Destroy terraform
