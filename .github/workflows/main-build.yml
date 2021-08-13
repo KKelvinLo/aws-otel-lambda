@@ -131,6 +131,7 @@ jobs:
           terraform init
           terraform apply -auto-approve
           ${{ matrix.replace_command }}
+        working-directory: ${{ matrix.amp_terraform_directory }}
       - name: Initialize terraform
         run: terraform init
         working-directory: ${{ matrix.terraform_directory }}
