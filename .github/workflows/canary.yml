@@ -17,7 +17,7 @@ jobs:
         # below.
         name:
           - java-awssdk-agent
-          # - java-awssdk-wrapper
+          - java-awssdk-wrapper
           # - java-okhttp-wrapper
           # - nodejs-awssdk
           # - python38
@@ -27,9 +27,18 @@ jobs:
             language: java
             build_directory: java
             build_command: ./build.sh
+            replace_command: ./replace.sh
             terraform_directory: sample-apps/java-agent-aws-sdk-terraform
-            amp_terraform_directory: sample-apps/amp-terraform
-            expected_template: adot/utils/expected-templates/java-awssdk-agent.json
+            amp_regions: [ "us-west-1", "us-east-1", "us-east-2", "eu-central-1", "eu-west-1"]
+            amp_terraform_directory: integration-tests/amp-terraform
+            expected_trace_template: adot/utils/expected-templates/java-awssdk-agent.json
+            expected_metric_template: adot/utils/expected-templates/java-awssdk-agent-metric.json
+          - name: java-awssdk-wrapper
+            language: java
+            build_directory: java
+            build_command: ./build.sh
+            terraform_directory: sample-apps/java-wrapper-aws-sdk-terraform
+            expected_template: adot/utils/expected-templates/java-awssdk-wrapper.json
     steps:
       - uses: actions/checkout@v2
         with:
@@ -98,25 +107,27 @@ jobs:
           role-duration-seconds: 1200
           aws-region: ${{ matrix.aws_region }}
       - uses: hashicorp/setup-terraform@v1
+      - name: Initialize amp terraform and replace Java agent collector config
+        if: ${{ matrix.name == 'java-awssdk-agent' && contains(matrix.amp_regions, matrix.aws_region)}}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+          ${{ matrix.replace_command }}
+        working-directory: ${{ matrix.amp_terraform_directory }}
       - name: Initialize terraform
         run: terraform init
         working-directory: ${{ matrix.terraform_directory }}
-      - name: Initialize terraform 2
-        run: terraform init
-        working-directory: ${{ matrix.amp_terraform_directory }}
       - name: Apply terraform
         run: terraform apply -auto-approve
         working-directory: ${{ matrix.terraform_directory }}
         env:
           TF_VAR_function_name: hello-lambda-${{ matrix.name }}-${{ github.run_id }}-${{ matrix.aws_region }}
-      - name: Apply terraform 2
-        run: terraform apply -auto-approve
-        working-directory: ${{ matrix.amp_terraform_directory }}
       - name: Extract endpoint
         id: extract-endpoint
         run: terraform output -raw api-gateway-url
         working-directory: ${{ matrix.terraform_directory }}
       - name: Extract amp endpoint
+        if: ${{ matrix.name == 'java-awssdk-agent' && contains(matrix.amp_regions, matrix.aws_region)}}
         id: extract-amp-endpoint
         run: terraform output -raw amp_endpoint
         working-directory: ${{ matrix.amp_terraform_directory }}
@@ -127,17 +138,17 @@ jobs:
         with:
           repository: aws-observability/aws-otel-test-framework
           path: test-framework
-      - name: validate trace sample
-        uses: nick-invision/retry@v2
-        with:
-          timeout_seconds: 300
-          max_attempts: 3
-          command: |
-            cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
-            cd test-framework
-            ./gradlew :validator:run --args="-c default-lambda-validation.yml --endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
+      # - name: validate trace sample
+      #   uses: nick-invision/retry@v2
+      #   with:
+      #     timeout_seconds: 300
+      #     max_attempts: 3
+      #     command: |
+      #       cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
+      #       cd test-framework
+      #       ./gradlew :validator:run --args="-c default-lambda-validation.yml --endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
       - name: validate java metric sample
-        if: ${{ matrix.name == 'java-awssdk-agent' }}
+        if: ${{ matrix.name == 'java-awssdk-agent' && contains(matrix.amp_regions, matrix.aws_region)}}
         run: |
           cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedTrace.mustache
           cd test-framework
@@ -147,6 +158,6 @@ jobs:
         run: terraform destroy -auto-approve
         working-directory: ${{ matrix.terraform_directory }}
       - name: Destroy terraform 2
-        if: always()
+        if: ${{ matrix.name == 'java-awssdk-agent' && contains(matrix.amp_regions, matrix.aws_region)}}
         run: terraform destroy -auto-approve
         working-directory: ${{ matrix.amp_terraform_directory }}

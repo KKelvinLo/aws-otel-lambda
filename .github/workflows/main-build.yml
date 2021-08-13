@@ -17,38 +17,41 @@ jobs:
             language: java
             build_directory: java
             build_command: ./build.sh
+            replace_command: ./replace.sh
             terraform_directory: integration-tests/java/aws-sdk/agent
-            expected_template: adot/utils/expected-templates/java-awssdk-agent.json
+            amp_terraform_directory: integration-tests/amp-terraform
+            expected_trace_template: adot/utils/expected-templates/java-awssdk-agent.json
+            expected_metric_template: adot/utils/expected-templates/java-awssdk-agent-metric.json
           - name: java-awssdk-wrapper
             language: java
             build_directory: java
             build_command: ./build.sh
             terraform_directory: integration-tests/java/aws-sdk/wrapper
-            expected_template: adot/utils/expected-templates/java-awssdk-wrapper.json
+            expected_trace_template: adot/utils/expected-templates/java-awssdk-wrapper.json
           - name: java-okhttp-wrapper
             language: java
             build_directory: java
             build_command: ./build.sh
             terraform_directory: integration-tests/java/okhttp/wrapper
-            expected_template: adot/utils/expected-templates/java-okhttp-wrapper.json
+            expected_trace_template: adot/utils/expected-templates/java-okhttp-wrapper.json
           - name: nodejs-awssdk
             language: nodejs
             build_directory: nodejs
             build_command: ./build.sh
             terraform_directory: integration-tests/nodejs/aws-sdk
-            expected_template: adot/utils/expected-templates/nodejs-awssdk.json
+            expected_trace_template: adot/utils/expected-templates/nodejs-awssdk.json
           - name: python
             language: python
             build_directory: python
             build_command: ./build.sh
             terraform_directory: integration-tests/python/aws-sdk
-            expected_template: adot/utils/expected-templates/python.json
+            expected_trace_template: adot/utils/expected-templates/python.json
           - name: dotnet-awssdk-wrapper
             language: dotnet
             build_directory: dotnet
             build_command: ./build.sh
             terraform_directory: integration-tests/dotnet/aws-sdk/wrapper
-            expected_template: adot/utils/expected-templates/dotnet-awssdk-wrapper.json
+            expected_trace_template: adot/utils/expected-templates/dotnet-awssdk-wrapper.json
     steps:
       - uses: actions/checkout@v2
         with:
@@ -108,8 +111,8 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
-          # role-duration-seconds: 1200
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+          role-duration-seconds: 1200
           aws-region: us-east-1
       - name: Patch ADOT
         run: ./patch-upstream.sh
@@ -122,6 +125,12 @@ jobs:
         run: ${{ matrix.build_command }}
         working-directory: ${{ matrix.build_directory }}
       - uses: hashicorp/setup-terraform@v1
+      - name: Initialize amp terraform and replace Java agent collector config
+        if: ${{ matrix.name == 'java-awssdk-agent' }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+          ${{ matrix.replace_command }}
       - name: Initialize terraform
         run: terraform init
         working-directory: ${{ matrix.terraform_directory }}
@@ -135,6 +144,11 @@ jobs:
         id: extract-endpoint
         run: terraform output -raw api-gateway-url
         working-directory: ${{ matrix.terraform_directory }}
+      - name: Extract amp endpoint
+        id: extract-amp-endpoint
+        if: ${{ matrix.name == 'java-awssdk-agent' }}
+        run: terraform output -raw amp_endpoint
+        working-directory: ${{ matrix.amp_terraform_directory }}
       - name: Extract SDK layer arn
         id: extract-sdk-layer-arn
         if: ${{ matrix.language != 'dotnet' }}
@@ -154,16 +168,20 @@ jobs:
           path: test-framework
       # - name: validate trace sample
       #   run: |
-      #     cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
+      #     cp ${{ matrix.expected_trace_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
       #     cd test-framework
-      #     ./gradlew :validator:run --args="-c default-lambda-validation.yml --endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
-      - name: validate java metric sample
+      #     ./gradlew :validator:run --args="-c default-lambda-validation.yml --endpoint ${{ steps.extract-amp-endpoint.outputs.stdout }} --region $AWS_REGION"
+      - name: validate java agent metric sample
         if: ${{ matrix.name == 'java-awssdk-agent' }}
         run: |
-          cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedTrace.mustache
+          cp ${{ matrix.expected_metric_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedTrace.mustache
           cd test-framework
-          ./gradlew :validator:run --args="-c prometheus-static-metric-validation.yml -cortex-instance-endpoint ${{ secrets.AMP_ENDPOINT }} --region $AWS_REGION"
+          ./gradlew :validator:run --args="-c prometheus-static-metric-validation.yml -cortex-instance-endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
       - name: Destroy terraform
         if: always()
         run: terraform destroy -auto-approve
         working-directory: ${{ matrix.terraform_directory }}
+      - name: Destroy amp terraform
+        if: always()
+        run: terraform destroy -auto-approve
+        working-directory: ${{ matrix.amp_terraform_directory }}

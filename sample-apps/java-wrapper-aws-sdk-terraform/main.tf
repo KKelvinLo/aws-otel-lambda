@@ -1,7 +1,7 @@
 data "aws_region" "current" {}
 
 module "app" {
-  source = "../../opentelemetry-lambda/java/sample-apps/aws-sdk/deploy/wrapper"
+  source = "../../opentelemetry-lambda/java/sample-apps/aws-sdk/deploy/agent"
 
   name                = var.function_name
   collector_layer_arn = null
@@ -15,6 +15,6 @@ resource "aws_iam_role_policy_attachment" "test_xray" {
 }
 
 resource "aws_iam_role_policy_attachment" "test_amp" {
-   role       = module.app.function_role_name
-   policy_arn = "arn:aws:iam::aws:policy/AmazonPrometheusFullAccess"
- }
+  role       = module.app.function_role_name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonPrometheusFullAccess"
+}
