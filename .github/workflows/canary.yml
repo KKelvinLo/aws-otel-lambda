@@ -146,7 +146,6 @@ jobs:
           command: |
             cp ${{ matrix.expected_template }} test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
             cd test-framework
-            ./gradlew :validator:run --args="-c default-lambda-validation.yml --endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
       - name: validate java metric sample
         if: ${{ matrix.name == 'java-awssdk-agent' && contains(matrix.amp_regions, matrix.aws_region)}}
         run: |
