@@ -174,7 +174,7 @@ jobs:
       - name: validate java agent metric sample
         if: ${{ matrix.name == 'java-awssdk-agent' }}
         run: |
-          cp ${{ matrix.expected_metric_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedTrace.mustache
+          cp ${{ matrix.expected_metric_template }} test-framework/validator/src/main/resources/expected-data-template/ampExpectedMetric.mustache
           cd test-framework
           ./gradlew :validator:run --args="-c prometheus-static-metric-validation.yml -cortex-instance-endpoint ${{ steps.extract-endpoint.outputs.stdout }} --region $AWS_REGION"
       - name: Destroy terraform
